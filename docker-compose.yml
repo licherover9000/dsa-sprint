@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dsa-sprint-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dsa_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - dsa-sprint-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dsa_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/dsa_tracker
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:?Run .\scripts\setup.ps1 first to create a local .env file}
+      APP_CORS_ALLOWED_ORIGIN: http://localhost:5173
+      APP_TIME_ZONE: Asia/Kolkata
+    ports:
+      - "8080:8080"
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080/api
+    ports:
+      - "5173:5173"
+
+volumes:
+  dsa-sprint-postgres:
